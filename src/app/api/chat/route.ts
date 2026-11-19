@@ -10,10 +10,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { message, snapshot, category, language } = body as {
+    const { message, snapshot, category, profileCategory, language } = body as {
       message?: string;
       snapshot?: AirSnapshot;
       category?: ProfileCategory;
+      profileCategory?: ProfileCategory;
       language?: Language;
     };
 
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const targetCategory: ProfileCategory = category || 'ADULT';
+    const targetCategory: ProfileCategory = category || profileCategory || 'ADULT';
     const targetLang: Language = language || 'en';
 
     const responseMessage = await askAirAwareAi(

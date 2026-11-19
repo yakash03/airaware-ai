@@ -10,9 +10,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { snapshot, category, language } = body as {
+    const { snapshot, category, profileCategory, language } = body as {
       snapshot?: AirSnapshot;
       category?: ProfileCategory;
+      profileCategory?: ProfileCategory;
       language?: Language;
     };
 
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const targetCategory: ProfileCategory = category || 'ADULT';
+    const targetCategory: ProfileCategory = category || profileCategory || 'ADULT';
     const targetLang: Language = language || 'en';
 
     const explanation = await explainAirForProfile(snapshot, targetCategory, targetLang);
