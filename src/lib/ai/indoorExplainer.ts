@@ -4,17 +4,23 @@
 
 import { IndoorAdvisorPlan } from '../types';
 import { validateAiOutput } from './validator';
+import { callGeminiModel, parseGeminiJsonObject } from './geminiClient';
 
+interface IndoorExplanationJson {
+  headline?: string;
+  overview?: string;
+  keyAction?: string;
+  [key: string]: unknown;
+}
+
+/** Enrich an IndoorAdvisorPlan with grounded Gemini commentary when available. */
 export async function explainIndoorPlanWithGemini(plan: IndoorAdvisorPlan): Promise<IndoorAdvisorPlan> {
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  if (!apiKey || !plan.outdoorAqi) {
+  if (plan.outdoorAqi === null || plan.outdoorAqi === undefined) {
     return plan;
   }
 
-  const validNumbers = [
-    plan.outdoorAqi,
-  ];
+  const validNumbers = [plan.outdoorAqi];
+  const langLabel = plan.language === 'ta' ? 'Tamil' : plan.language === 'hi' ? 'Hindi' : 'English';
 
   const systemPrompt = `You are AirAware AI's Indoor Air Environment Advisor.
 Your job is to explain practical indoor air quality considerations based on real outdoor data and user-provided room details.
@@ -25,7 +31,7 @@ CRITICAL NON-NEGOTIABLES:
 3. Never state that an action makes air "completely safe", "safe", or "pollution-free". Use balanced guidance like "helps reduce particle infiltration".
 4. Zero medical diagnoses, medical advice, or prescriptions.
 5. Target profile: ${plan.profileCategory}.
-6. Language: ${plan.language} (${plan.language === 'ta' ? 'Tamil' : plan.language === 'hi' ? 'Hindi' : 'English'}).
+6. Language: ${plan.language} (${langLabel}).
 7. Return a JSON object with keys: "headline", "overview", "keyAction".`;
 
   const userPrompt = `Outdoor Air: IN NAQI ${plan.outdoorAqi} (${plan.outdoorCategory}), Dominant Pollutant: ${plan.dominantPollutant}
@@ -37,60 +43,41 @@ User Indoor Setup:
 - Air Purifier: ${plan.setup.airPurifierAvailable ?? 'Not specified'}
 - Road Facing: ${plan.setup.roadFacingArea ?? 'Not specified'}
 
-Provide a concise, grounded family summary in ${plan.language === 'ta' ? 'Tamil' : plan.language === 'hi' ? 'Hindi' : 'English'}. Return only valid JSON.`;
+Provide a concise, grounded family summary in ${langLabel}. Return only valid JSON.`;
 
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 7000);
+  const rawText = await callGeminiModel({
+    prompt: `${systemPrompt}\n\n${userPrompt}`,
+    responseMimeType: 'application/json',
+  });
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.2,
-            responseMimeType: 'application/json',
-          },
-        }),
-        signal: controller.signal,
-      }
-    );
+  if (!rawText) return plan;
 
-    clearTimeout(timeout);
+  const parsed = parseGeminiJsonObject<IndoorExplanationJson>(rawText);
+  if (!parsed) return plan;
 
-    if (!response.ok) return plan;
+  const combinedText = `${parsed.headline ?? ''} ${parsed.overview ?? ''} ${parsed.keyAction ?? ''}`;
+  const validation = validateAiOutput(combinedText, validNumbers);
 
-    const json = await response.json();
-    const rawText = json.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!rawText) return plan;
-
-    const parsed = JSON.parse(rawText);
-    const combinedText = `${parsed.headline ?? ''} ${parsed.overview ?? ''} ${parsed.keyAction ?? ''}`;
-    const validation = validateAiOutput(combinedText, validNumbers);
-
-    if (!validation.isValid) {
-      console.warn('[AirAware AI] Gemini indoor explanation failed validation. Using deterministic fallback:', validation.reason);
-      return plan;
-    }
-
-    return {
-      ...plan,
-      familySummary: {
-        headline: parsed.headline || plan.familySummary.headline,
-        overview: parsed.overview || plan.familySummary.overview,
-        keyAction: parsed.keyAction || plan.familySummary.keyAction,
-      },
-    };
-  } catch (err) {
-    console.warn('[AirAware AI] Gemini indoor explainer error. Falling back to deterministic rules:', err);
+  if (!validation.isValid) {
+    console.warn('[AirAware AI] Gemini indoor explanation failed validation. Using deterministic fallback:', validation.reason);
     return plan;
   }
+
+  return {
+    ...plan,
+    familySummary: {
+      headline:
+        typeof parsed.headline === 'string' && parsed.headline
+          ? parsed.headline
+          : plan.familySummary.headline,
+      overview:
+        typeof parsed.overview === 'string' && parsed.overview
+          ? parsed.overview
+          : plan.familySummary.overview,
+      keyAction:
+        typeof parsed.keyAction === 'string' && parsed.keyAction
+          ? parsed.keyAction
+          : plan.familySummary.keyAction,
+    },
+  };
 }

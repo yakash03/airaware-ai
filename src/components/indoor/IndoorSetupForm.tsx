@@ -12,6 +12,12 @@ interface IndoorSetupFormProps {
   language: Language;
 }
 
+interface QuestionSpec<K extends Exclude<keyof IndoorEnvironmentSetup, 'updatedAt'>> {
+  key: K;
+  legend: string;
+  options: ReadonlyArray<{ val: NonNullable<IndoorEnvironmentSetup[K]>; label: string }>;
+}
+
 export function IndoorSetupForm({
   currentSetup,
   onSave,
@@ -21,16 +27,20 @@ export function IndoorSetupForm({
   const t = TRANSLATIONS[language];
   const [setup, setSetup] = useState<IndoorEnvironmentSetup>({ ...currentSetup });
 
-  const handleSelect = <K extends keyof IndoorEnvironmentSetup>(key: K, value: IndoorEnvironmentSetup[K]) => {
+  const handleSelect = <K extends Exclude<keyof IndoorEnvironmentSetup, 'updatedAt'>>(
+    key: K,
+    value: NonNullable<IndoorEnvironmentSetup[K]>
+  ) => {
     setSetup((prev) => ({
       ...prev,
-      [key]: prev[key] === value ? null : value, // Toggle or unset
+      [key]: prev[key] === value ? null : value,
     }));
   };
 
   const handleClear = () => {
-    setSetup({ ...DEFAULT_INDOOR_SETUP });
-    onSave({ ...DEFAULT_INDOOR_SETUP });
+    const empty = { ...DEFAULT_INDOOR_SETUP };
+    setSetup(empty);
+    onSave(empty);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -39,196 +49,121 @@ export function IndoorSetupForm({
     onClose();
   };
 
+  const renderFieldset = <K extends Exclude<keyof IndoorEnvironmentSetup, 'updatedAt'>>(
+    spec: QuestionSpec<K>
+  ) => (
+    <fieldset
+      key={spec.key}
+      className="space-y-1.5 p-3 rounded-2xl bg-white dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60"
+    >
+      <legend className="font-bold text-zinc-800 dark:text-zinc-200 block px-1">
+        {spec.legend}
+      </legend>
+      <div className="flex gap-1.5">
+        {spec.options.map((opt) => {
+          const isSelected = setup[spec.key] === opt.val;
+          return (
+            <button
+              type="button"
+              key={opt.val}
+              aria-pressed={isSelected}
+              onClick={() => handleSelect(spec.key, opt.val)}
+              className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                isSelected
+                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-zinc-900'
+                  : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+              }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+
   return (
     <form
       onSubmit={handleSubmit}
-      className="p-5 sm:p-6 bg-zinc-50 dark:bg-zinc-800/40 rounded-3xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-5 animate-in fade-in duration-200"
+      className="p-5 sm:p-6 bg-zinc-50 dark:bg-zinc-800/40 rounded-3xl border border-zinc-200/80 dark:border-zinc-700/80 space-y-5"
     >
       <div className="flex items-center justify-between border-b border-zinc-200/60 dark:border-zinc-700/60 pb-3">
         <div>
-          <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-            {t.setupPrompt}
-          </h4>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+          <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{t.setupPrompt}</h4>
+          <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
             Answers are stored locally in your browser only. Never transmitted to third parties.
           </p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 font-bold px-2 py-1"
+          aria-label="Close setup form"
+          className="text-xs text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white font-bold px-2 py-1 rounded-lg cursor-pointer"
         >
-          ✕
+          <span aria-hidden="true">✕</span>
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-        {/* Q1: Naturally Ventilated */}
-        <div className="space-y-1.5 p-3 rounded-2xl bg-white dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60">
-          <label className="font-bold text-zinc-800 dark:text-zinc-200 block">
-            {t.qVentilation}
-          </label>
-          <div className="flex gap-1.5">
-            {[
-              { val: 'YES', label: 'Yes' },
-              { val: 'NO', label: 'No' },
-              { val: 'PARTIAL', label: 'Partial' },
-            ].map((opt) => (
-              <button
-                type="button"
-                key={opt.val}
-                onClick={() => handleSelect('naturallyVentilated', opt.val as any)}
-                className={`flex-1 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                  setup.naturallyVentilated === opt.val
-                    ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-zinc-900'
-                    : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Q2: Windows Open/Closed */}
-        <div className="space-y-1.5 p-3 rounded-2xl bg-white dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60">
-          <label className="font-bold text-zinc-800 dark:text-zinc-200 block">
-            {t.qWindows}
-          </label>
-          <div className="flex gap-1.5">
-            {[
-              { val: 'OPEN', label: 'Usually Open' },
-              { val: 'CLOSED', label: 'Usually Closed' },
-              { val: 'TIME_DEPENDENT', label: 'Varies' },
-            ].map((opt) => (
-              <button
-                type="button"
-                key={opt.val}
-                onClick={() => handleSelect('windowsStatus', opt.val as any)}
-                className={`flex-1 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                  setup.windowsStatus === opt.val
-                    ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-zinc-900'
-                    : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Q3: Cooking Activity Nearby */}
-        <div className="space-y-1.5 p-3 rounded-2xl bg-white dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60">
-          <label className="font-bold text-zinc-800 dark:text-zinc-200 block">
-            {t.qCooking}
-          </label>
-          <div className="flex gap-1.5">
-            {[
-              { val: 'YES', label: 'Yes, Active' },
-              { val: 'NO', label: 'No' },
-              { val: 'OCCASIONALLY', label: 'Occasionally' },
-            ].map((opt) => (
-              <button
-                type="button"
-                key={opt.val}
-                onClick={() => handleSelect('cookingNearby', opt.val as any)}
-                className={`flex-1 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                  setup.cookingNearby === opt.val
-                    ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-zinc-900'
-                    : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Q4: Visible Dust or Smoke */}
-        <div className="space-y-1.5 p-3 rounded-2xl bg-white dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60">
-          <label className="font-bold text-zinc-800 dark:text-zinc-200 block">
-            {t.qDustSmoke}
-          </label>
-          <div className="flex gap-1.5">
-            {[
-              { val: 'YES', label: 'Yes, Frequent' },
-              { val: 'NO', label: 'No' },
-              { val: 'SOMETIMES', label: 'Sometimes' },
-            ].map((opt) => (
-              <button
-                type="button"
-                key={opt.val}
-                onClick={() => handleSelect('visibleDustOrSmoke', opt.val as any)}
-                className={`flex-1 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                  setup.visibleDustOrSmoke === opt.val
-                    ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-zinc-900'
-                    : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Q5: Air Purifier Available */}
-        <div className="space-y-1.5 p-3 rounded-2xl bg-white dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60">
-          <label className="font-bold text-zinc-800 dark:text-zinc-200 block">
-            {t.qPurifier}
-          </label>
-          <div className="flex gap-1.5">
-            {[
-              { val: 'YES', label: 'Yes, In Use' },
-              { val: 'NO', label: 'No Purifier' },
-            ].map((opt) => (
-              <button
-                type="button"
-                key={opt.val}
-                onClick={() => handleSelect('airPurifierAvailable', opt.val as any)}
-                className={`flex-1 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                  setup.airPurifierAvailable === opt.val
-                    ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-zinc-900'
-                    : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Q6: Road-Facing Traffic Area */}
-        <div className="space-y-1.5 p-3 rounded-2xl bg-white dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60">
-          <label className="font-bold text-zinc-800 dark:text-zinc-200 block">
-            {t.qRoadFacing}
-          </label>
-          <div className="flex gap-1.5">
-            {[
-              { val: 'YES', label: 'Yes, Busy Road' },
-              { val: 'NO', label: 'Quiet / Courtyard' },
-            ].map((opt) => (
-              <button
-                type="button"
-                key={opt.val}
-                onClick={() => handleSelect('roadFacingArea', opt.val as any)}
-                className={`flex-1 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                  setup.roadFacingArea === opt.val
-                    ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-zinc-900'
-                    : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        {renderFieldset({
+          key: 'naturallyVentilated',
+          legend: t.qVentilation,
+          options: [
+            { val: 'YES', label: 'Yes' },
+            { val: 'NO', label: 'No' },
+            { val: 'PARTIAL', label: 'Partial' },
+          ],
+        })}
+        {renderFieldset({
+          key: 'windowsStatus',
+          legend: t.qWindows,
+          options: [
+            { val: 'OPEN', label: 'Usually Open' },
+            { val: 'CLOSED', label: 'Usually Closed' },
+            { val: 'TIME_DEPENDENT', label: 'Varies' },
+          ],
+        })}
+        {renderFieldset({
+          key: 'cookingNearby',
+          legend: t.qCooking,
+          options: [
+            { val: 'YES', label: 'Yes, Active' },
+            { val: 'NO', label: 'No' },
+            { val: 'OCCASIONALLY', label: 'Occasionally' },
+          ],
+        })}
+        {renderFieldset({
+          key: 'visibleDustOrSmoke',
+          legend: t.qDustSmoke,
+          options: [
+            { val: 'YES', label: 'Yes, Frequent' },
+            { val: 'NO', label: 'No' },
+            { val: 'SOMETIMES', label: 'Sometimes' },
+          ],
+        })}
+        {renderFieldset({
+          key: 'airPurifierAvailable',
+          legend: t.qPurifier,
+          options: [
+            { val: 'YES', label: 'Yes, In Use' },
+            { val: 'NO', label: 'No Purifier' },
+          ],
+        })}
+        {renderFieldset({
+          key: 'roadFacingArea',
+          legend: t.qRoadFacing,
+          options: [
+            { val: 'YES', label: 'Yes, Busy Road' },
+            { val: 'NO', label: 'Quiet / Courtyard' },
+          ],
+        })}
       </div>
 
       <div className="flex items-center justify-between border-t border-zinc-200/60 dark:border-zinc-700/60 pt-3">
         <button
           type="button"
           onClick={handleClear}
-          className="text-xs text-rose-600 hover:text-rose-700 font-bold cursor-pointer"
+          className="text-xs text-rose-700 dark:text-rose-400 hover:underline font-bold cursor-pointer"
         >
           {t.clearSetup}
         </button>
@@ -237,7 +172,7 @@ export function IndoorSetupForm({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-700 cursor-pointer"
+            className="px-4 py-2 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-700 cursor-pointer"
           >
             {t.cancelBtn}
           </button>

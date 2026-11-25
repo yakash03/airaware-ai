@@ -120,6 +120,7 @@ export interface ComputedAqi {
   value: number | null;
   category: string | null;
   categoryColor: string | null;
+  categoryTextColor?: string | null;
   dominantPollutant: PollutantId | null;
   subIndices: Partial<Record<PollutantId, number>>;
   method: string;

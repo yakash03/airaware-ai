@@ -2,50 +2,39 @@
 // POST /api/chat
 
 import { NextRequest, NextResponse } from 'next/server';
-import { AirSnapshot, ProfileCategory, Language, ChatMessage, ApiResponse } from '@/lib/types';
+import { ApiResponse, ChatMessage } from '@/lib/types';
 import { askAirAwareAi } from '@/lib/ai/gemini';
+import {
+  assertValidSnapshot,
+  handleRouteError,
+  parseChatQuestion,
+  parseJsonBody,
+  parseLanguage,
+  parseProfileCategory,
+} from '@/lib/api/validation';
+
+interface ChatRequestBody {
+  message?: unknown;
+  snapshot?: unknown;
+  category?: unknown;
+  profileCategory?: unknown;
+  language?: unknown;
+}
 
 export async function POST(request: NextRequest) {
   const nowIso = new Date().toISOString();
 
   try {
-    const body = await request.json();
-    const { message, snapshot, category, profileCategory, language } = body as {
-      message?: string;
-      snapshot?: AirSnapshot;
-      category?: ProfileCategory;
-      profileCategory?: ProfileCategory;
-      language?: Language;
-    };
+    const body = await parseJsonBody<ChatRequestBody>(request);
+    const cleanQuestion = parseChatQuestion(body.message);
+    assertValidSnapshot(body.snapshot);
 
-    if (!message || message.trim().length === 0) {
-      return NextResponse.json<ApiResponse<ChatMessage>>(
-        {
-          success: false,
-          error: 'Question message cannot be empty.',
-          fetchedAt: nowIso,
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!snapshot || !snapshot.current) {
-      return NextResponse.json<ApiResponse<ChatMessage>>(
-        {
-          success: false,
-          error: 'Missing environmental snapshot context.',
-          fetchedAt: nowIso,
-        },
-        { status: 400 }
-      );
-    }
-
-    const targetCategory: ProfileCategory = category || profileCategory || 'ADULT';
-    const targetLang: Language = language || 'en';
+    const targetCategory = parseProfileCategory(body.category ?? body.profileCategory, 'ADULT');
+    const targetLang = parseLanguage(body.language, 'en');
 
     const responseMessage = await askAirAwareAi(
-      message.trim(),
-      snapshot,
+      cleanQuestion,
+      body.snapshot,
       targetCategory,
       targetLang
     );
@@ -56,14 +45,10 @@ export async function POST(request: NextRequest) {
       fetchedAt: nowIso,
     });
   } catch (error: unknown) {
-    console.error('[API /api/chat Error]:', error);
-    return NextResponse.json<ApiResponse<ChatMessage>>(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Chat assistant failed.',
-        fetchedAt: nowIso,
-      },
-      { status: 500 }
+    return handleRouteError<ChatMessage>(
+      '/api/chat',
+      error,
+      'Unable to process question right now.'
     );
   }
 }

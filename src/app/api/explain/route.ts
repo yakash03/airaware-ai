@@ -2,36 +2,34 @@
 // POST /api/explain
 
 import { NextRequest, NextResponse } from 'next/server';
-import { AirSnapshot, ProfileCategory, Language, AgeExplanation, ApiResponse } from '@/lib/types';
+import { AgeExplanation, ApiResponse } from '@/lib/types';
 import { explainAirForProfile } from '@/lib/ai/gemini';
+import {
+  assertValidSnapshot,
+  handleRouteError,
+  parseJsonBody,
+  parseLanguage,
+  parseProfileCategory,
+} from '@/lib/api/validation';
+
+interface ExplainRequestBody {
+  snapshot?: unknown;
+  category?: unknown;
+  profileCategory?: unknown;
+  language?: unknown;
+}
 
 export async function POST(request: NextRequest) {
   const nowIso = new Date().toISOString();
 
   try {
-    const body = await request.json();
-    const { snapshot, category, profileCategory, language } = body as {
-      snapshot?: AirSnapshot;
-      category?: ProfileCategory;
-      profileCategory?: ProfileCategory;
-      language?: Language;
-    };
+    const body = await parseJsonBody<ExplainRequestBody>(request);
+    assertValidSnapshot(body.snapshot);
 
-    if (!snapshot || !snapshot.current) {
-      return NextResponse.json<ApiResponse<AgeExplanation>>(
-        {
-          success: false,
-          error: 'Missing required environmental snapshot data.',
-          fetchedAt: nowIso,
-        },
-        { status: 400 }
-      );
-    }
+    const targetCategory = parseProfileCategory(body.category ?? body.profileCategory, 'ADULT');
+    const targetLang = parseLanguage(body.language, 'en');
 
-    const targetCategory: ProfileCategory = category || profileCategory || 'ADULT';
-    const targetLang: Language = language || 'en';
-
-    const explanation = await explainAirForProfile(snapshot, targetCategory, targetLang);
+    const explanation = await explainAirForProfile(body.snapshot, targetCategory, targetLang);
 
     return NextResponse.json<ApiResponse<AgeExplanation>>({
       success: true,
@@ -39,14 +37,10 @@ export async function POST(request: NextRequest) {
       fetchedAt: nowIso,
     });
   } catch (error: unknown) {
-    console.error('[API /api/explain Error]:', error);
-    return NextResponse.json<ApiResponse<AgeExplanation>>(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to generate explanation.',
-        fetchedAt: nowIso,
-      },
-      { status: 500 }
+    return handleRouteError<AgeExplanation>(
+      '/api/explain',
+      error,
+      'Failed to generate age-adapted explanation.'
     );
   }
 }

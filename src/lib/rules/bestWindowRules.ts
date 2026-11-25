@@ -246,7 +246,6 @@ export function calculateBestWindows(
 
   // Enrich comparison reason for best window
   const bestPm25 = bestWindow.readingsUsed.find((r) => r.pollutant === 'pm2_5')?.avgValue;
-  const worstPm25 = worstWindow.readingsUsed.find((r) => r.pollutant === 'pm2_5')?.avgValue;
 
   const comparisonEn = diffPoints > 0
     ? `Forecast IN NAQI is ${bestAqi} (${bestWindow.aqiCategory}), which is ${diffPoints} points (${diffPct}%) lower than the peak forecast window (${worstWindow.timeLabel}, IN NAQI ${worstAqi}).`

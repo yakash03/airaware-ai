@@ -187,6 +187,28 @@ async function runScenarios() {
     assert.strictEqual(emptyChat.status, 400, 'Must return 400 for empty chat payload');
   });
 
+  // SCENARIO 7: Security Headers & Strict Input Validation
+  await testScenario('SCENARIO 7: Security Headers & Strict Validation Boundaries', async () => {
+    const airRes = await fetch('http://localhost:3000/api/air?lat=13.08abc&lon=80.27');
+    assert.strictEqual(airRes.status, 400, 'Must reject malformed decimal coordinates with 400');
+    assert.strictEqual(airRes.headers.get('x-frame-options'), 'DENY');
+    assert.strictEqual(airRes.headers.get('x-content-type-options'), 'nosniff');
+
+    const badLang = await fetch('http://localhost:3000/api/explain', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snapshot: { current: [] }, language: 'fr' }),
+    });
+    assert.strictEqual(badLang.status, 400, 'Must reject unsupported language enum');
+
+    const oversizedChat = await fetch('http://localhost:3000/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'x'.repeat(1001), snapshot: { current: [] } }),
+    });
+    assert.strictEqual(oversizedChat.status, 400, 'Must reject oversized chat messages');
+  });
+
   console.log('\n=============================================================');
   console.log(`TOTAL E2E SCENARIOS: ${total} | PASSED: ${passed} | FAILED: ${total - passed}`);
   if (passed === total) {

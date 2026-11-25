@@ -1,71 +1,80 @@
 // AirAware AI V2 — Indoor Air Advisor API Route
 // POST /api/indoor-advisor
-// Combines user-provided room details with real outdoor data.
 // Strictly non-sensor: never fabricates indoor measurements.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { calculateIndoorGuidance, DEFAULT_INDOOR_SETUP } from '@/lib/rules/indoorAdvisorRules';
+import { calculateIndoorGuidance } from '@/lib/rules/indoorAdvisorRules';
 import { explainIndoorPlanWithGemini } from '@/lib/ai/indoorExplainer';
+import { ApiResponse, IndoorAdvisorPlan } from '@/lib/types';
 import {
-  IndoorEnvironmentSetup,
-  ProfileCategory,
-  Language,
-  PollutantId,
-  ApiResponse,
-  IndoorAdvisorPlan,
-} from '@/lib/types';
+  handleRouteError,
+  parseIndoorSetup,
+  parseJsonBody,
+  parseLanguage,
+  parseOptionalPollutant,
+  parseProfileCategory,
+  RequestValidationError,
+  sanitizeLocationName,
+} from '@/lib/api/validation';
+
+interface IndoorAdvisorRequestBody {
+  setup?: unknown;
+  outdoorAqi?: unknown;
+  outdoorCategory?: unknown;
+  dominantPollutant?: unknown;
+  profileCategory?: unknown;
+  language?: unknown;
+  locationName?: unknown;
+}
 
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const {
-      setup = DEFAULT_INDOOR_SETUP,
-      outdoorAqi = null,
-      outdoorCategory = null,
-      dominantPollutant = null,
-      profileCategory = 'ADULT',
-      language = 'en',
-      locationName = 'Selected Location',
-    } = body as {
-      setup?: IndoorEnvironmentSetup;
-      outdoorAqi?: number | null;
-      outdoorCategory?: string | null;
-      dominantPollutant?: PollutantId | null;
-      profileCategory?: ProfileCategory;
-      language?: Language;
-      locationName?: string;
-    };
+  const nowIso = new Date().toISOString();
 
-    // Calculate deterministic suggestions
+  try {
+    const body = await parseJsonBody<IndoorAdvisorRequestBody>(req);
+    const setup = parseIndoorSetup(body.setup);
+    const profileCategory = parseProfileCategory(body.profileCategory, 'ADULT');
+    const language = parseLanguage(body.language, 'en');
+    const dominantPollutant = parseOptionalPollutant(body.dominantPollutant);
+    const locationName = sanitizeLocationName(
+      typeof body.locationName === 'string' ? body.locationName : undefined
+    );
+
+    let outdoorAqi: number | null = null;
+    if (body.outdoorAqi !== undefined && body.outdoorAqi !== null) {
+      if (typeof body.outdoorAqi !== 'number' || !Number.isFinite(body.outdoorAqi) || body.outdoorAqi < 0) {
+        throw new RequestValidationError('outdoorAqi must be a finite non-negative number or null.');
+      }
+      outdoorAqi = body.outdoorAqi;
+    }
+
+    const outdoorCategory =
+      typeof body.outdoorCategory === 'string'
+        ? body.outdoorCategory.replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, 40)
+        : null;
+
     const initialPlan = calculateIndoorGuidance(
       setup,
       outdoorAqi,
       outdoorCategory,
       dominantPollutant,
-      profileCategory as ProfileCategory,
-      language as Language,
+      profileCategory,
+      language,
       locationName
     );
 
-    // AI Enrichment (with deterministic fallback)
     const finalPlan = await explainIndoorPlanWithGemini(initialPlan);
 
-    const response: ApiResponse<IndoorAdvisorPlan> = {
+    return NextResponse.json<ApiResponse<IndoorAdvisorPlan>>({
       success: true,
       data: finalPlan,
-      fetchedAt: new Date().toISOString(),
-    };
-
-    return NextResponse.json(response);
-  } catch (error: any) {
-    console.error('[/api/indoor-advisor] Error generating indoor plan:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || 'Internal server error while evaluating indoor environment.',
-        fetchedAt: new Date().toISOString(),
-      },
-      { status: 500 }
+      fetchedAt: nowIso,
+    });
+  } catch (error: unknown) {
+    return handleRouteError<IndoorAdvisorPlan>(
+      '/api/indoor-advisor',
+      error,
+      'Unable to evaluate indoor environment guidance right now.'
     );
   }
 }

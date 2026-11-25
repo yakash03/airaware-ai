@@ -2,7 +2,7 @@
 // Enforces:
 // 1. Every numeric value in the output must exist in the real input data
 // 2. Prohibits medical diagnoses, disease claims, and unqualified "safe/unsafe" assertions
-// 3. Schema conformity check
+// 3. Preserves chemical formulas (PM2.5, PM10, NO2, SO2, O3) and units (ug/m3) without false positives
 
 export interface ValidationResult {
   isValid: boolean;
@@ -24,21 +24,24 @@ const FORBIDDEN_MEDICAL_PATTERNS = [
   /\byou have (asthma|copd|bronchitis|heart disease)\b/i,
 ];
 
+const IGNORED_POLICY_NUMBERS = new Set([2014, 2021, 2.5, 10, 24, 8]);
+
 /**
- * Extracts all numeric tokens from a text string, ignoring year/standard citations like 2014, 2021, 2.5, 10
+ * Extract quantitative numbers from AI text while ignoring chemical formulas
+ * (PM2.5, PM10, NO2, SO2, O3, CO2), scientific units (m3), and policy citation numbers.
  */
 export function extractNumbers(text: string): number[] {
-  // Matches integers or decimals
-  const matches = text.match(/\b\d+(\.\d+)?\b/g) || [];
+  const sanitized = text
+    .replace(/\b(?:PM\s*2\.5|PM\s*10|PM2_5|NO2|SO2|O3|CO2)\b/gi, ' ')
+    .replace(/\/m3\b/gi, ' ')
+    .replace(/\b0\s*[-–]\s*500\b/g, ' ');
+
+  const matches = sanitized.match(/\b\d+(\.\d+)?\b/g) || [];
   const numbers: number[] = [];
 
   for (const m of matches) {
-    const num = parseFloat(m);
-    if (!isNaN(num)) {
-      // Exclude standard year numbers, PM particle sizes (2.5, 10)
-      if (num === 2014 || num === 2021 || num === 2.5 || num === 10 || num === 24 || num === 8) {
-        continue;
-      }
+    const num = Number.parseFloat(m);
+    if (Number.isFinite(num) && !IGNORED_POLICY_NUMBERS.has(num)) {
       numbers.push(num);
     }
   }
@@ -46,11 +49,11 @@ export function extractNumbers(text: string): number[] {
   return numbers;
 }
 
+/** Validate AI output against trusted numerical inputs and non-medical safety guardrails. */
 export function validateAiOutput(
   textToValidate: string,
   allowedNumbers: number[]
 ): ValidationResult {
-  // 1. Check for medical / unqualified safety claims
   const forbiddenFound: string[] = [];
   for (const pattern of FORBIDDEN_MEDICAL_PATTERNS) {
     if (pattern.test(textToValidate)) {
@@ -66,13 +69,12 @@ export function validateAiOutput(
     };
   }
 
-  // 2. Check for invented numbers
   const outputNumbers = extractNumbers(textToValidate);
   const invented: number[] = [];
 
-  // Round input numbers to 1 decimal place or whole numbers for comparison
   const allowedSet = new Set<number>();
   for (const n of allowedNumbers) {
+    if (!Number.isFinite(n)) continue;
     allowedSet.add(n);
     allowedSet.add(Math.round(n));
     allowedSet.add(Number(n.toFixed(1)));
@@ -80,7 +82,6 @@ export function validateAiOutput(
   }
 
   for (const num of outputNumbers) {
-    // Check if within 0.1 tolerance of any allowed number
     const isAllowed = Array.from(allowedSet).some((allowed) => Math.abs(allowed - num) < 0.15);
     if (!isAllowed) {
       invented.push(num);

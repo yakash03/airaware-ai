@@ -87,13 +87,15 @@ export function normalizeAirQualitySnapshot(
   // Compute India NAQI deterministically
   const computedAqi = computeIndiaNaqi(cpcbConcentrations, 'MODEL_ESTIMATE', 'Open-Meteo CAMS');
 
-  // Parse current weather
+  // Parse current weather & index weather slots by ISO time for accurate alignment
   let currentWeather: WeatherData | null = null;
+  const weatherIndexByTime = new Map<string, number>();
   if (weatherData && weatherData.hourly.time.length > 0) {
     const wTimes = weatherData.hourly.time;
     let wIdx = 0;
     let wMinDiff = Infinity;
     for (let i = 0; i < wTimes.length; i++) {
+      weatherIndexByTime.set(wTimes[i], i);
       const diff = Math.abs(nowEpoch - new Date(wTimes[i]).getTime());
       if (diff < wMinDiff) {
         wMinDiff = diff;
@@ -157,12 +159,13 @@ export function normalizeAirQualitySnapshot(
       : null;
 
     let slotWeather: HourlySlot['weather'] = undefined;
-    if (weatherData && weatherData.hourly.temperature_2m[i] !== undefined) {
+    const matchedWeatherIdx = weatherIndexByTime.get(slotTime);
+    if (weatherData && matchedWeatherIdx !== undefined) {
       slotWeather = {
-        temperature: weatherData.hourly.temperature_2m[i] ?? 0,
-        humidity: weatherData.hourly.relative_humidity_2m[i] ?? 0,
-        windSpeed: weatherData.hourly.wind_speed_10m[i] ?? 0,
-        precipitation: weatherData.hourly.precipitation[i] ?? 0,
+        temperature: weatherData.hourly.temperature_2m[matchedWeatherIdx] ?? 0,
+        humidity: weatherData.hourly.relative_humidity_2m[matchedWeatherIdx] ?? 0,
+        windSpeed: weatherData.hourly.wind_speed_10m[matchedWeatherIdx] ?? 0,
+        precipitation: weatherData.hourly.precipitation[matchedWeatherIdx] ?? 0,
       };
     }
 

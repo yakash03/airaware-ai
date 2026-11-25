@@ -10,7 +10,6 @@ import {
   ProfileCategory,
   Language,
   PollutantId,
-  DataType,
 } from '../types';
 
 export const DEFAULT_INDOOR_SETUP: IndoorEnvironmentSetup = {
@@ -68,7 +67,7 @@ export function calculateIndoorGuidance(
           : `With outdoor air in the ${outdoorCategory ?? 'Moderate'} category (NAQI ${outdoorAqi}), keeping windows closed limits outdoor particulate infiltration into your living space.`,
         priority: 'HIGH',
         icon: '🪟',
-        ageGuidance: getAgeSpecificWindowAdvice(profileCategory, 'CLOSE_WINDOWS', language),
+        ageGuidance: getAgeSpecificWindowAdvice(profileCategory, language),
         whySuggestion: {
           outdoorConditionContext: outdoorContextStr,
           indoorUserFactor: 'User reported windows are currently open.',
@@ -90,7 +89,7 @@ export function calculateIndoorGuidance(
           : 'Completely sealing rooms can trap indoor humidity and carbon dioxide. Use brief 5-minute cross-ventilation periods during hours with lower traffic.',
         priority: 'MEDIUM',
         icon: '💨',
-        ageGuidance: getAgeSpecificWindowAdvice(profileCategory, 'TIMED_VENT', language),
+        ageGuidance: getAgeSpecificWindowAdvice(profileCategory, language),
         whySuggestion: {
           outdoorConditionContext: outdoorContextStr,
           indoorUserFactor: 'Windows are closed or managed by time.',
@@ -113,7 +112,7 @@ export function calculateIndoorGuidance(
         : `Outdoor air is currently in the ${outdoorCategory ?? 'Satisfactory'} range (NAQI ${outdoorAqi}). Opening windows allows natural replacement of stagnant indoor air.`,
       priority: 'MEDIUM',
       icon: '🍃',
-      ageGuidance: getAgeSpecificWindowAdvice(profileCategory, 'OPEN_WINDOWS', language),
+      ageGuidance: getAgeSpecificWindowAdvice(profileCategory, language),
       whySuggestion: {
         outdoorConditionContext: outdoorContextStr,
         indoorUserFactor: 'Natural ventilation preference.',
@@ -281,7 +280,7 @@ export function calculateIndoorGuidance(
 }
 
 // Age-specific helpers for localized guidance
-function getAgeSpecificWindowAdvice(category: ProfileCategory, type: string, lang: Language): string {
+function getAgeSpecificWindowAdvice(category: ProfileCategory, lang: Language): string {
   if (lang === 'ta') {
     switch (category) {
       case 'CHILD': return 'குழந்தைகள் விளையாடும் அறையின் ஜன்னல்களைப் பெரியவர்கள் கவனித்து மூடவும்.';

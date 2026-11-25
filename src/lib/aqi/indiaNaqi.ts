@@ -3,38 +3,47 @@
 // Reference: Central Pollution Control Board (CPCB), MoEFCC, Govt of India (2014)
 
 import { PollutantId, ComputedAqi, DataType } from '../types';
-import { CPCB_BREAKPOINTS, CPCB_CATEGORIES, BreakpointRange } from './breakpoints';
+import { CPCB_BREAKPOINTS, CPCB_CATEGORIES } from './breakpoints';
 
 export interface PollutantConcentration {
   pollutant: PollutantId;
-  value: number; // In standard units: PM2.5, PM10, NO2, SO2, O3 in µg/m³; CO in mg/m³
+  value: number; // Standard units: PM2.5, PM10, NO2, SO2, O3 in µg/m³; CO in mg/m³
 }
 
 /**
- * Calculates the individual pollutant sub-index using CPCB linear interpolation formula:
+ * Calculate an individual pollutant sub-index using the CPCB linear interpolation formula:
  * Ip = [ (I_HI - I_LO) / (B_HI - B_LO) ] * (Cp - B_LO) + I_LO
  */
 export function calculateSubIndex(pollutant: PollutantId, concentration: number): number | null {
-  if (concentration < 0 || isNaN(concentration)) {
+  if (!Number.isFinite(concentration) || concentration < 0) {
     return null;
   }
 
   const ranges = CPCB_BREAKPOINTS[pollutant];
-  if (!ranges) return null;
+  if (!ranges || ranges.length === 0) return null;
 
-  // Find corresponding breakpoint bracket
-  for (const range of ranges) {
+  for (let i = 0; i < ranges.length; i++) {
+    const range = ranges[i];
+
     if (concentration >= range.concLow && concentration <= range.concHigh) {
       const concDiff = range.concHigh - range.concLow;
       if (concDiff === 0) return range.aqiLow;
 
       const aqiDiff = range.aqiHigh - range.aqiLow;
-      const subIndex = ((aqiDiff / concDiff) * (concentration - range.concLow)) + range.aqiLow;
+      const subIndex = (aqiDiff / concDiff) * (concentration - range.concLow) + range.aqiLow;
       return Math.round(subIndex);
+    }
+
+    // Bridge discrete CPCB decimal gaps (e.g. 30 < concentration < 31) continuously
+    const nextRange = ranges[i + 1];
+    if (nextRange && concentration > range.concHigh && concentration < nextRange.concLow) {
+      const gapSpan = nextRange.concLow - range.concHigh;
+      const aqiSpan = nextRange.aqiLow - range.aqiHigh;
+      const bridged = range.aqiHigh + (aqiSpan / gapSpan) * (concentration - range.concHigh);
+      return Math.round(bridged);
     }
   }
 
-  // If concentration exceeds the highest breakpoint, cap or extrapolate up to 500
   const highestRange = ranges[ranges.length - 1];
   if (concentration > highestRange.concHigh) {
     return 500;
@@ -44,11 +53,10 @@ export function calculateSubIndex(pollutant: PollutantId, concentration: number)
 }
 
 /**
- * Computes India NAQI following official CPCB rules:
+ * Compute India NAQI following official CPCB rules:
  * - Data sufficiency: Requires at least 3 valid pollutants
  * - Mandatory requirement: At least one must be PM2.5 or PM10
  * - Overall AQI = max(sub-indices)
- * - Dominant pollutant = pollutant with max sub-index
  */
 export function computeIndiaNaqi(
   pollutants: PollutantConcentration[],
@@ -78,6 +86,7 @@ export function computeIndiaNaqi(
       value: null,
       category: null,
       categoryColor: null,
+      categoryTextColor: null,
       dominantPollutant: null,
       subIndices,
       method: `CPCB formula on ${sourceName} (Insufficient data: need ≥3 pollutants including PM2.5 or PM10)`,
@@ -88,7 +97,6 @@ export function computeIndiaNaqi(
     };
   }
 
-  // Find maximum sub-index
   let maxValue = -1;
   let dominant: PollutantId | null = null;
 
@@ -99,16 +107,16 @@ export function computeIndiaNaqi(
     }
   }
 
-  // Determine category and color
-  const matchedCategory = CPCB_CATEGORIES.find(
-    (c) => maxValue >= c.aqiLow && maxValue <= c.aqiHigh
-  ) ?? CPCB_CATEGORIES[CPCB_CATEGORIES.length - 1];
+  const matchedCategory =
+    CPCB_CATEGORIES.find((c) => maxValue >= c.aqiLow && maxValue <= c.aqiHigh) ??
+    CPCB_CATEGORIES[CPCB_CATEGORIES.length - 1];
 
   return {
     standard: 'IN_NAQI',
     value: maxValue,
     category: matchedCategory.name,
     categoryColor: matchedCategory.color,
+    categoryTextColor: matchedCategory.textColor,
     dominantPollutant: dominant,
     subIndices,
     method: `Computed by AirAware using official CPCB breakpoints from ${sourceName} concentrations`,
