@@ -1,167 +1,266 @@
-# AirAware AI V2 — "Air for Every Age"
-> **Tagline:** *"Same air. Different people. Personal answers."*
+# AirAware AI V2 — Urban Air Quality Assistant
 
-AirAware AI transforms complex, real-world atmospheric environmental data into personalized, age-adapted interpretations for every member of the family—from children to seniors—using strictly verified data, deterministic calculations, and grounded AI.
+> **Same air. Different people. Personal answers.**
+>
+> AirAware AI turns regional air-quality and weather data into understandable, age-aware guidance for everyday outdoor decisions.
 
----
+<p align="center">
+  <a href="https://airaware-ai-omega.vercel.app/"><strong>Live Demo</strong></a>
+  ·
+  <a href="https://github.com/yakash03/airaware-ai"><strong>Source Code</strong></a>
+  ·
+  <a href="ARCHITECTURE.md"><strong>Architecture</strong></a>
+  ·
+  <a href="docs/CHALLENGE_ALIGNMENT.md"><strong>PromptWars Challenge 6</strong></a>
+</p>
 
-## 1. Problem Statement & Core Thesis
+## Project at a glance
 
-Most air quality applications display a single, generic numerical Air Quality Index (AQI) number with one-size-fits-all medical warnings. In reality:
-- **Same Air**: The actual atmospheric particulate and chemical concentration in a neighborhood is identical for everyone.
-- **Different People**: A child playing soccer in a park, a teenager cycling to school, an adult commuting to work, and a senior taking a morning walk experience pollution with radically different physiological sensitivities and daily routines.
-- **Personal Answers**: A single verified air quality snapshot is interpreted deterministically through multiple age-adapted lenses, providing tailored, practical advice without generic medical diagnoses.
+**AirAware AI** is an urban air-quality assistant built for **PromptWars Challenge 6: Urban Air Quality Assistant**. It combines environmental data, a deterministic Indian National Air Quality Index (NAQI) calculation pipeline, and a grounded generative-AI assistant to help people interpret air conditions in the context of age groups and daily activities.
 
----
+Traditional AQI interfaces often present a number and a generic category. AirAware AI aims to make that information more useful: it explains what the available data represents, highlights its limitations, and presents practical, non-medical guidance in accessible language.
 
-## 2. Non-Negotiable Engineering Rules
+**Important data distinction:** the live air-quality values used by this project come from the Open-Meteo air-quality service using CAMS atmospheric modelling. They are regional model estimates, not measurements from a sensor installed at the user's exact location. The application must not be interpreted as a street-level monitoring instrument or medical device.
 
-1. **REAL DATA ONLY**: Every displayed environmental value comes from a live API or published dataset tagged with data source, data type (`MEASURED`, `MODEL_ESTIMATE`, `FORECAST`), and timestamp. Zero mock, simulated, or placeholder numbers in production code.
-2. **RULES DECIDE, AI EXPLAINS**: The LLM never creates a measurement, calculates AQI, determines thresholds, or formulates advisories. Deterministic algorithms decide; Gemini explains.
-3. **ZERO SENSOR FABRICATION**: The app does not have an indoor hardware sensor. It never invents indoor AQI or indoor PM2.5 readings.
-4. **NO MEDICAL DIAGNOSIS**: Strictly avoids clinical claims, diagnoses, or unconditional "safe/unsafe" assertions. Language uses comparative phrasing (e.g., *"comparatively more favorable based on the forecast"*).
-5. **TRANSPARENCY IN ALL RECOMMENDATIONS**: Every card features a "Why Am I Seeing This?" or "Why This Time?" provenance breakdown disclosing data pillars, mathematical rationale, and uncertainty boundaries.
-6. **PRIVACY BY DESIGN**: Family profiles and indoor space setups are stored locally on the user's device (`localStorage`). Zero personal demographics transmitted to external cloud trackers.
+## Live application
 
----
+- **Production deployment:** https://airaware-ai-omega.vercel.app/
+- **GitHub repository:** https://github.com/yakash03/airaware-ai
+- **Demo video:** Add the public video URL here when it is ready.
 
-## 3. Key Features
+## Why this project matters
 
-### A. Real-Time Environmental Dashboard
-- Live atmospheric chemistry ingestion via Open-Meteo CAMS Global Atmospheric Model (ECMWF, ~40 km resolution) under CC BY 4.0.
-- Live criteria pollutants: $\text{PM}_{2.5}$, $\text{PM}_{10}$, $\text{CO}$, $\text{NO}_2$, $\text{SO}_2$, and $\text{O}_3$.
-- Deterministic India National AQI (CPCB 2014 linear breakpoints, 0–500 scale) with dominant pollutant identification.
-- Real-time weather overlay: temperature, relative humidity, wind speed, wind direction, and precipitation.
-- Interactive geocoding search for Indian and global cities with quick-select shortcuts.
+Air pollution is not experienced in the same way by everyone. A child playing outdoors, a student commuting, an adult travelling to work, and an older person going for a walk may need different explanations and activity considerations.
 
-### B. Family Air Profiles (CRUD)
-- Pre-seeded with a 4-generation household (*Aarav, Priya, Rajesh, Grandma Lakshmi*).
-- Four age categories:
-  - **Child (< 12 yrs)**: Friendly, protective language, hydration reminders, parent consultation.
-  - **Teen (13–17 yrs)**: Sports, workout timing, school commutes, traffic soot avoidance.
-  - **Adult (18–59 yrs)**: Professional, objective exposure moderation, commute scheduling.
-  - **Senior (60+ yrs)**: High-legibility text, gentle walking timing, courtyard window preference.
-- Local browser storage with zero external tracking.
+AirAware AI is designed around three ideas:
 
-### C. Age-Adaptive AI Assistant ("Ask AirAware AI")
-- Grounded conversational Q&A powered by Google Gemini 2.0 Flash with automated output validation (`validator.ts`).
-- Instant deterministic fallback engine (`deterministicExplanations.ts`) ensuring 100% functionality without an API key or when offline.
-- Multi-language localization in **English (`en`)**, **Tamil (`ta` - தமிழ்)**, and **Hindi (`hi` - हिन्दी)**.
+1. **One environmental snapshot:** preserve the same underlying pollutant values and AQI result for all profiles.
+2. **Different explanations:** adapt language, accessibility, and general activity guidance to the selected age group.
+3. **Transparent reasoning:** show whether information is model-estimated or forecast, explain the basis for recommendations, and communicate uncertainty.
 
-### D. Four-Pillars Transparency Modal ("Why Am I Seeing This?")
-Deconstructs guidance into 4 mandatory provenance pillars:
-1. **Measured**: Ground monitoring sensor status (avoiding mislabeling).
-2. **Model Estimate**: CAMS global atmospheric chemistry reanalysis.
-3. **Forecast**: Hourly 24-hour forward projections.
-4. **General Guidance**: Deterministic CPCB 2014 and WHO 2021 air quality guidelines.
+The application does not diagnose health conditions or determine whether an activity is medically safe for an individual.
 
-### E. 24-Hour Best Window & Outdoor Activity Planner
-- Hourly forward scan of CPCB NAQI and pollutant concentrations.
-- Identifies the **"Comparatively Most Favorable Window"** (Rank #1) and computes exact mathematical reduction vs. the diurnal peak.
-- Activity selection: Walking (🚶), Outdoor Recreation/Play (⚽), Cycling (🚴), General Outdoor (🌤️).
-- Interactive 24-hour timeline bar chart with single-click hourly delta inspector.
-- Dedicated "Why This Time?" modal itemizing forecast readings, AQI scale, and uncertainty bounds.
+## Challenge 6 alignment: Urban Air Quality Assistant
 
-### F. Indoor Air Advisor
-- Solves home air quality without requiring fake sensor hardware.
-- Optional 6-question space setup (natural ventilation, window habits, cooking activity, dust/smoke, air purifier, road exposure).
-- Prominent mandatory notice: *"AirAware AI does not measure indoor air quality without a compatible sensor."*
-- Actionable strategies: window management during high outdoor pollution, kitchen exhaust isolation, wet mopping over dry sweeping, purifier bedroom positioning.
-- "Why This Suggestion?" provenance modal disclosing what AirAware AI cannot determine without indoor hardware.
+| Urban air-quality need | AirAware AI implementation |
+|---|---|
+| Understand current air conditions | Dashboard using Open-Meteo air-quality data |
+| Interpret pollution levels | Deterministic India NAQI calculation using CPCB 2014 breakpoints |
+| Understand key pollutants | Displays PM2.5, PM10, CO, NO₂, SO₂ and O₃ where returned by the provider |
+| Consider weather context | Weather information such as temperature, humidity, wind and precipitation |
+| Make information understandable | Age-adapted family profiles and explanations |
+| Ask follow-up questions | Gemini-powered conversational assistant with a deterministic fallback |
+| Consider outdoor timing | 24-hour forecast-based comparative activity window |
+| Understand data reliability | Data provenance, timestamps, model/forecast labels and limitations |
+| Support a wider audience | English, Tamil and Hindi interface support; accessibility controls |
 
-### G. Accessibility & Inclusive Design
-- Font size scaling: Normal (`A`), Large (`A+`), Extra Large (`A++`).
-- High-Contrast mode toggle.
-- Senior mode automatically activates high contrast and larger text sizing.
+See [docs/CHALLENGE_ALIGNMENT.md](docs/CHALLENGE_ALIGNMENT.md) for the detailed feature-to-challenge mapping and evaluation notes.
 
----
+## Key capabilities
 
-## 4. Tech Stack
+### 1. Air-quality and weather dashboard
 
-- **Framework**: [Next.js 16.4.6](https://nextjs.org/) (App Router, Turbopack, React 19)
-- **Language**: TypeScript 5 (Strict Mode)
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
-- **AI Engine**: Google Gemini 2.0 Flash (`@google/genai` REST) with strict deterministic fallback
-- **Data Providers**: Open-Meteo Air Quality (CAMS/ECMWF), Open-Meteo Forecast, Open-Meteo Geocoding
-- **Caching**: Server-side in-memory TTL Cache (15-min air/weather, 24-hr geocoding)
-- **Testing**: Node.js automated test suites (59 passing tests)
+- Retrieves air-quality information from Open-Meteo's CAMS-based service.
+- Presents pollutant values including PM2.5, PM10, CO, NO₂, SO₂ and O₃ when available in the API response.
+- Calculates India's National AQI (NAQI) using deterministic CPCB 2014 breakpoint logic.
+- Identifies the dominant pollutant from the calculated pollutant sub-indices.
+- Displays weather context and data freshness/provenance information.
+- Supports location search and city selection.
 
----
+### 2. Age-aware family profiles
 
-## 5. Getting Started & Local Development
+- Supports child, teen, adult and senior profile categories.
+- Allows family profiles to be managed in the browser.
+- Adapts explanation style and general activity considerations to the selected profile.
+- Keeps the underlying environmental readings consistent across profiles.
+- Stores profile information in browser `localStorage`; the documented design does not require a user account.
 
-### Prerequisites
-- Node.js 18+ or 20+ (tested on Node.js v24)
-- npm, pnpm, or yarn
+### 3. Ask AirAware AI
 
-### 1. Clone & Install
+- Uses **Google Gemini 2.0 Flash** through server-side application routes when a Gemini API key is configured.
+- Provides conversational explanations grounded in the environmental context supplied by the application.
+- Uses output validation to check generated content against trusted input data and project safety rules.
+- Provides a deterministic explanation fallback when Gemini is unavailable, times out, is rate-limited, or is not configured.
+- Supports English, Tamil and Hindi experiences.
+
+**Role separation:** the deterministic application logic calculates AQI and selects rule-based results. Gemini is used to explain the supplied context; it is not the source of pollutant measurements, CPCB thresholds, or calculated AQI values.
+
+### 4. Forecast-based outdoor activity planner
+
+- Examines the available hourly forecast window.
+- Compares forecast conditions to identify a comparatively more favourable time window for selected outdoor activities.
+- Presents the forecast context and rationale to the user.
+- Communicates that forecast values are estimates and that a more favourable forecast period is not a guarantee of safe conditions.
+
+### 5. Indoor air guidance
+
+- Provides general household guidance based on the user's indoor-space answers and available outdoor conditions.
+- Does **not** claim to measure indoor PM2.5, indoor AQI, or indoor gas concentrations.
+- Clearly communicates that indoor measurements require compatible hardware sensors.
+
+### 6. Accessibility and localization
+
+- English, Tamil and Hindi language support.
+- Text-size controls and high-contrast presentation.
+- Senior-oriented display adjustments.
+- Environmental units and pollutant labels are intended to remain clear across localized explanations.
+
+## How the system works
+
+```mermaid
+flowchart TD
+    A[User selects a location] --> B[Next.js server routes]
+    B --> C[Open-Meteo air-quality and weather services]
+    C --> D[Normalize values, units, timestamps and provenance]
+    D --> E[Deterministic environmental logic]
+    E --> F[CPCB India NAQI calculation]
+    E --> G[Forecast-based activity comparison]
+    F --> H[Dashboard and profile-aware context]
+    G --> H
+    H --> I[Gemini explanation when configured]
+    I --> J[Output validation]
+    J --> K[Personalized explanation]
+    I -->|Unavailable or rejected| L[Deterministic fallback]
+    L --> K
+```
+
+### Data and AI responsibilities
+
+| Component | Responsibility |
+|---|---|
+| Open-Meteo Air Quality API | Supplies CAMS-based air-quality model data |
+| Open-Meteo Weather API | Supplies weather and forecast context |
+| Open-Meteo Geocoding API | Resolves location searches |
+| Deterministic AQI engine | Applies CPCB NAQI calculation rules |
+| Forecast/activity logic | Compares forecast values using application rules |
+| Google Gemini 2.0 Flash | Generates natural-language explanations from supplied context |
+| Output validator | Checks generated responses against application constraints |
+| Deterministic fallback | Keeps core explanations available without a successful Gemini response |
+
+## Technology stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 App Router |
+| UI | React 19 |
+| Language | TypeScript |
+| Styling | Tailwind CSS v4 |
+| Generative AI | Google Gemini 2.0 Flash |
+| Environmental data | Open-Meteo Air Quality, Weather and Geocoding APIs |
+| AQI methodology | CPCB India National AQI, 2014 |
+| Client-side profile storage | Browser `localStorage` |
+| Deployment | Vercel |
+| Tests | Node.js test scripts in `tests/` |
+
+## Data sources and methodology
+
+- **Air quality:** Open-Meteo Air Quality API, using Copernicus Atmosphere Monitoring Service (CAMS) model data.
+- **Weather:** Open-Meteo Weather API.
+- **Geocoding:** Open-Meteo Geocoding API.
+- **Indian AQI:** Central Pollution Control Board (CPCB), *National Air Quality Index*, October 2014.
+- **Health-context reference:** World Health Organization (WHO), *Global Air Quality Guidelines* (2021).
+
+Check the upstream providers and source documents for current availability, licensing, model details and methodology. Data availability and returned fields can vary by location and time.
+
+## Reliability, privacy and safety
+
+- **Model estimates are not ground-station measurements.** CAMS data has regional spatial resolution and cannot describe every street-level pollution variation.
+- **Forecasts are uncertain.** Future conditions may differ from the forecast.
+- **No indoor sensor is claimed.** Indoor advice is not an indoor measurement.
+- **No medical diagnosis.** AirAware AI provides general environmental information, not personal medical advice.
+- **AI does not calculate AQI.** Numerical AQI calculations and thresholds belong to deterministic application logic.
+- **Profile privacy.** Family profiles are stored in browser local storage according to the documented implementation. Users sharing a device should consider that local browser data may be visible to other people using that browser.
+- **API key handling.** Configure the Gemini key only as a server-side environment variable. Never commit real API keys or secrets to the repository.
+
+## Local setup
+
+### Requirements
+
+- Node.js version compatible with the installed Next.js release.
+- npm.
+
+### 1. Clone the repository
+
 ```bash
-git clone https://github.com/your-username/airaware-ai.git
+git clone https://github.com/yakash03/airaware-ai.git
 cd airaware-ai
 npm install
 ```
 
-### 2. Configure Environment Variables
-Copy `.env.example` to `.env.local`:
+### 2. Configure environment variables
+
+Copy the example file:
+
 ```bash
 cp .env.example .env.local
 ```
-*(Optional)* Add your Gemini API key to `.env.local`:
+
+If using Gemini, set the server-side key in `.env.local`:
+
 ```env
-GEMINI_API_KEY=your_actual_gemini_api_key_here
+GEMINI_API_KEY=your_gemini_api_key
 ```
-> **Note:** If `GEMINI_API_KEY` is omitted, AirAware AI operates seamlessly with zero degradation using its deterministic rule engine.
 
-### 3. Run Automated Test Suite
+Do not commit `.env.local` or any real secret. The Gemini key is optional according to the project documentation; without it, the deterministic explanation fallback is intended to handle supported explanation flows.
+
+### 3. Run locally
+
 ```bash
-node tests/run_tests.mjs       # Phase 2 tests (19 tests)
-node tests/phase3_tests.mjs    # Phase 3 tests (13 tests)
-node tests/phase4_tests.mjs    # Phase 4 tests (13 tests)
-node tests/phase5_tests.mjs    # Phase 5 tests (14 tests)
+npm run dev
 ```
-*Total: 59/59 tests passing.*
 
-### 4. Build & Start Production Server
+Open http://localhost:3000.
+
+### 4. Run the documented test suites
+
+```bash
+node tests/run_tests.mjs
+node tests/phase3_tests.mjs
+node tests/phase4_tests.mjs
+node tests/phase5_tests.mjs
+```
+
+The repository README previously documented **59 passing tests** across these four scripts. Re-run the commands on the current commit before quoting that result in a competition submission; test status can change as code changes.
+
+### 5. Build for production
+
 ```bash
 npm run build
-npm run start -- -p 3000
+npm run start
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## Deployment
+
+The project is deployed at:
+
+https://airaware-ai-omega.vercel.app/
+
+For a Vercel deployment:
+
+1. Import `yakash03/airaware-ai` into Vercel.
+2. Configure `GEMINI_API_KEY` as a server-side environment variable if Gemini functionality is required.
+3. Deploy the project.
+4. Verify the live dashboard, location search, profile flows, chat fallback, and forecast planner.
+5. Confirm that the deployed commit matches the GitHub commit being submitted.
+
+## Known limitations
+
+1. CAMS-based data is regional model output, not a hyperlocal roadside sensor reading.
+2. Forecast accuracy varies with location, time horizon and atmospheric conditions.
+3. Indoor air quality cannot be measured without compatible indoor hardware.
+4. Personalized explanations are general guidance based on age categories, not individualized medical advice.
+5. Gemini output depends on API availability and configured service limits; the deterministic fallback is intended to preserve supported explanation functionality.
+
+## Repository documentation
+
+- [System architecture](ARCHITECTURE.md)
+- [Development progress](DEVELOPMENT_PROGRESS.md)
+- [PromptWars Challenge 6 alignment](docs/CHALLENGE_ALIGNMENT.md)
+
+## Project status
+
+AirAware AI V2 is deployed as a working web application. The repository includes implementation, architecture and test documentation. Please use the live deployment and the current source code to verify each feature before evaluating it.
 
 ---
 
-## 6. Deployment Instructions (Vercel)
-
-AirAware AI is built with the Next.js App Router and is 100% Vercel-ready.
-
-1. Push your repository to GitHub or GitLab.
-2. Import the project into [Vercel Dashboard](https://vercel.com/new).
-3. Set the Environment Variables:
-   - `GEMINI_API_KEY` (Optional, server-side only)
-4. Click **Deploy**.
-5. Vercel automatically compiles the static pages, server route handlers (`/api/air`, `/api/best-window`, `/api/chat`, `/api/explain`, `/api/indoor-advisor`, `/api/location`, `/api/weather`), and asset optimization.
-
----
-
-## 7. Data Sources & Official Attribution
-
-- **Air Quality Modeling**: Copernicus Atmosphere Monitoring Service (CAMS) reanalysis and global atmospheric forecasts provided via Open-Meteo under [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
-- **Weather Forecasts**: Open-Meteo Weather API using DWD ICON and NOAA GFS models under CC BY 4.0.
-- **Geocoding Data**: Open-Meteo Geocoding API based on GeoNames.
-- **AQI Calculation Methodology**: Central Pollution Control Board (CPCB), Ministry of Environment, Forest and Climate Change, Government of India (National Air Quality Index Report, October 2014).
-- **Health Benchmarks**: World Health Organization (WHO) Global Air Quality Guidelines (2021).
-
----
-
-## 8. Known Data & Sensor Limitations
-
-1. **Regional Model Resolution (~40 km)**: Open-Meteo CAMS data represents regional grid estimates. Local street microclimates (heavy traffic junctions, construction sites, hyper-local biomass burning) may cause localized deviations.
-2. **Forecast Uncertainty**: Hourly air quality predictions naturally exhibit greater uncertainty in hours 18–24 compared to near-term projections.
-3. **No Indoor Sensor**: AirAware AI does not have hardware sensors installed in user homes. All indoor suggestions are comparative environmental principles and do not constitute indoor gas or particulate measurements.
-4. **Non-Medical**: Environmental air quality assessments do not evaluate individual cardiovascular or respiratory clinical fitness.
-
----
-
-## 9. License
-
-This project is licensed under the MIT License — see the LICENSE file for details.
+**Built for PromptWars Challenge 6 — Urban Air Quality Assistant.**
